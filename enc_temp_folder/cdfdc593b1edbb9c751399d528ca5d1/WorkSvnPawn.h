@@ -33,17 +33,12 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Speed")
 	float BoostValue;
 	float MaxSpeed;
-	float CurrentSpeed;
-	float CurrentUpSpeed;
 
 	FHitResult HitResult;
 	FVector CurrentInputDirection;
 	float DecelerationTime;
-	float ZDecelTime;
 	bool bIsMoveEnd;
 	bool bShouldCountDecelTime;
-	bool bShouldCountUpDecelTime;
-	bool bIsUpDownEnd;
 
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaTime) override;
@@ -55,8 +50,6 @@ protected:
 	void MoveEnd(const FInputActionValue& value);
 	UFUNCTION()
 	void UpDown(const FInputActionValue& value);
-	UFUNCTION()
-	void UpDownEnd(const FInputActionValue& value);
 	UFUNCTION()
 	void Degree(const FInputActionValue& value);
 	UFUNCTION()
