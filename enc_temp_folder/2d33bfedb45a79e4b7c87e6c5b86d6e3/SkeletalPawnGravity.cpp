@@ -1,19 +1,18 @@
-#include "GravityPawn.h"
+#include "SkeletalPawnGravity.h"
 #include "WorkSvnPlayerController.h"
 #include "EnhancedInputComponent.h"
-#include "Components/BoxComponent.h"
+#include "Components/CapsuleComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Camera/CameraComponent.h"
 #include <cmath>
 
-
-AGravityPawn::AGravityPawn()
+ASkeletalPawnGravity::ASkeletalPawnGravity()
 {
-	BoxCollision = CreateDefaultSubobject<UBoxComponent>(TEXT("BoxCollision"));
-	SetRootComponent(BoxCollision);
+	CapsuleCollision = CreateDefaultSubobject<UCapsuleComponent>(TEXT("BoxCollision"));
+	SetRootComponent(CapsuleCollision);
 
-	StaticMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("StaticMesh"));
-	StaticMesh->SetupAttachment(RootComponent);
+	SkeletalMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("SkeletalMesh"));
+	SkeletalMesh->SetupAttachment(RootComponent);
 
 	SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
 	SpringArm->SetupAttachment(RootComponent);
@@ -32,6 +31,7 @@ AGravityPawn::AGravityPawn()
 	NormalSpeed = 20.0f;
 	BoostValue = 1.7f;
 	TotalSpeed = NormalSpeed;
+	MoveVelocity = 0.0f;
 	InertiaVelocity = FVector(0.0f, 0.0f, 0.0f);
 	CurrentInputDirection = FVector(0.0f, 0.0f, 0.0f);
 
@@ -43,16 +43,16 @@ AGravityPawn::AGravityPawn()
 	SectionalArea = 1.0f;
 	Gravity = 980.0f;
 	Weight = 50.0f;
-	TerminalVelocity = sqrtf((2.0f * Gravity * Weight)/(DragCoefficient * AirDensity * SectionalArea));
+	TerminalVelocity = sqrtf((2.0f * Gravity * Weight) / (DragCoefficient * AirDensity * SectionalArea));
 }
 
-void AGravityPawn::BeginPlay()
+void ASkeletalPawnGravity::BeginPlay()
 {
 	Super::BeginPlay();
-
+	
 }
 
-void AGravityPawn::Tick(float DeltaTime)
+void ASkeletalPawnGravity::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
@@ -64,10 +64,9 @@ void AGravityPawn::Tick(float DeltaTime)
 
 }
 
-void AGravityPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
+void ASkeletalPawnGravity::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
-
 	if (UEnhancedInputComponent* EnhancedInput = Cast<UEnhancedInputComponent>(PlayerInputComponent))
 	{
 		if (AWorkSvnPlayerController* PlayerController = Cast<AWorkSvnPlayerController>(GetController()))
@@ -78,14 +77,14 @@ void AGravityPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 					PlayerController->MoveAction,
 					ETriggerEvent::Triggered,
 					this,
-					&AGravityPawn::Move
+					&ASkeletalPawnGravity::Move
 				);
 
 				EnhancedInput->BindAction(
 					PlayerController->MoveAction,
 					ETriggerEvent::Completed,
 					this,
-					&AGravityPawn::StopMove
+					&ASkeletalPawnGravity::StopMove
 				);
 			}
 
@@ -95,7 +94,7 @@ void AGravityPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 					PlayerController->DegreeAction,
 					ETriggerEvent::Triggered,
 					this,
-					&AGravityPawn::Look
+					&ASkeletalPawnGravity::Look
 				);
 			}
 
@@ -105,14 +104,14 @@ void AGravityPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 					PlayerController->BoostAction,
 					ETriggerEvent::Triggered,
 					this,
-					&AGravityPawn::StartBoost
+					&ASkeletalPawnGravity::StartBoost
 				);
 
 				EnhancedInput->BindAction(
 					PlayerController->BoostAction,
 					ETriggerEvent::Completed,
 					this,
-					&AGravityPawn::StopBoost
+					&ASkeletalPawnGravity::StopBoost
 				);
 			}
 
@@ -122,7 +121,7 @@ void AGravityPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 					PlayerController->JumpAction,
 					ETriggerEvent::Triggered,
 					this,
-					&AGravityPawn::StartJump
+					&ASkeletalPawnGravity::StartJump
 				);
 			}
 
@@ -130,7 +129,7 @@ void AGravityPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 	}
 }
 
-void AGravityPawn::Move(const FInputActionValue& value)
+void ASkeletalPawnGravity::Move(const FInputActionValue& value)
 {
 	if (!Controller)
 	{
@@ -143,6 +142,9 @@ void AGravityPawn::Move(const FInputActionValue& value)
 	ControlRotation.Pitch = PitchValue * -1.0f;
 	FVector ForwardVector = ControlRotation.Vector();
 	FVector RightVector = FRotationMatrix(GetControlRotation()).GetUnitAxis(EAxis::Y);
+	FVector ForwardOffset = ForwardVector * MoveInput.X * TotalSpeed;
+	FVector RightOffset = RightVector * MoveInput.Y * TotalSpeed;
+
 
 	if (!FMath::IsNearlyZero(MoveInput.X))
 	{
@@ -153,14 +155,16 @@ void AGravityPawn::Move(const FInputActionValue& value)
 	{
 		AddActorLocalOffset(RightVector * MoveInput.Y * TotalSpeed);
 	}
+	SkeletalMesh->SetRelativeRotation(FRotator(0.0f, ControlRotation.Yaw - 90.0f, 0.0f));
+	MoveVelocity = (ForwardOffset + RightOffset).Size();
 
-	if (!MoveInput.IsNearlyZero())
+	if (MoveInput.IsNearlyZero())
 	{
-		CurrentInputDirection = (ForwardVector * MoveInput.X + RightVector * MoveInput.Y).GetSafeNormal();
+		MoveVelocity = 0.0f;
 	}
 }
 
-void AGravityPawn::StopMove(const FInputActionValue& value)
+void ASkeletalPawnGravity::StopMove(const FInputActionValue& value)
 {
 	const FVector2D MoveInput = value.Get<FVector2D>();
 	if (MoveInput.IsNearlyZero())
@@ -170,27 +174,25 @@ void AGravityPawn::StopMove(const FInputActionValue& value)
 }
 
 
-void AGravityPawn::Look(const FInputActionValue& value)
+void ASkeletalPawnGravity::Look(const FInputActionValue& value)
 {
 	const FVector2D RotateInput = value.Get<FVector2D>();
 
-	FRotator NewRotation = GetActorRotation();
-	NewRotation.Yaw += RotateInput.X;
-	NewRotation.Pitch = FMath::Clamp(NewRotation.Pitch - RotateInput.Y, -80.0f, 80.0f);
-	SetActorRotation(NewRotation);
+	AddControllerYawInput(RotateInput.X);
+	AddControllerPitchInput(RotateInput.Y);
 }
 
-void AGravityPawn::StartBoost(const FInputActionValue& value)
+void ASkeletalPawnGravity::StartBoost(const FInputActionValue& value)
 {
 	TotalSpeed = NormalSpeed * BoostValue;
 }
 
-void AGravityPawn::StopBoost(const FInputActionValue& value)
+void ASkeletalPawnGravity::StopBoost(const FInputActionValue& value)
 {
 	TotalSpeed = NormalSpeed;
 }
 
-void AGravityPawn::StartJump(const FInputActionValue& value)
+void ASkeletalPawnGravity::StartJump(const FInputActionValue& value)
 {
 
 	if (!bIsFalling)
@@ -201,12 +203,12 @@ void AGravityPawn::StartJump(const FInputActionValue& value)
 	}
 }
 
-void AGravityPawn::GetGravity(float DeltaTime)
+void ASkeletalPawnGravity::GetGravity(float DeltaTime)
 {
 	FallingSpeed = TerminalVelocity * tanh((Gravity / TerminalVelocity) * DeltaTime);
 }
 
-void AGravityPawn::Falling()
+void ASkeletalPawnGravity::Falling()
 {
 	bIsFalling = true;
 	AddActorLocalOffset(InertiaVelocity);

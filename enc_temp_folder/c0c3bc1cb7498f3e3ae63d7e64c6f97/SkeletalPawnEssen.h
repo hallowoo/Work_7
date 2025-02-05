@@ -36,7 +36,7 @@ protected:
 	float MoveVelocity;
 
 	float TotalSpeed;
-	FVector CurrentInputDirection;
+
 
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 

@@ -29,7 +29,6 @@ ASkeletalPawnEssen::ASkeletalPawnEssen()
 	BoostValue = 1.7f;
 	TotalSpeed = NormalSpeed;
 	MoveVelocity = 0.0f;
-	CurrentInputDirection = FVector(0.0f, 0.0f, 0.0f);
 }
 
 void ASkeletalPawnEssen::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -113,14 +112,9 @@ void ASkeletalPawnEssen::Move(const FInputActionValue& value)
 	{
 		AddActorLocalOffset(RightVector * MoveInput.Y * TotalSpeed);
 	}
-	if (!MoveInput.IsNearlyZero())
-	{
-		CurrentInputDirection = (ForwardVector * MoveInput.X + RightVector * MoveInput.Y).GetSafeNormal();
-	}
-
-	FRotator MeshRot = FRotator(0.0f, -90.0f, 0.0f);
-	SkeletalMesh->SetRelativeRotation(CurrentInputDirection.Rotation() + MeshRot);
+	SkeletalMesh->SetRelativeRotation(FRotator(0.0f, ControlRotation.Yaw - 90.0f, 0.0f));
 	MoveVelocity = (ForwardOffset + RightOffset).Size();
+
 	if (MoveInput.IsNearlyZero())
 	{
 		MoveVelocity = 0.0f;
