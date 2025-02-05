@@ -162,6 +162,7 @@ void ASkeletalPawnGravity::Move(const FInputActionValue& value)
 	}
 
 	FRotator MeshRot = FRotator(0.0f, -90.0f, 0.0f);
+
 	SkeletalMesh->SetRelativeRotation(CurrentInputDirection.Rotation() + MeshRot);
 	MoveVelocity = (ForwardOffset + RightOffset).Size();
 
